@@ -35,6 +35,19 @@ const META: Record<Strategy, { label: string; tagline: string; text: string; bor
   balanced: { label: "Balanced", tagline: "Best blend of cost and time", text: "text-balanced", border: "border-balanced", bg: "bg-balanced" },
 };
 const STRATS: Strategy[] = ["cost", "fast", "balanced"];
+const SECTIONS: [string, string][] = [
+  ["recommendations", "Recommendations"], ["details", "Route Details"], ["sustainability", "Sustainability"],
+  ["what-if", "What-if Simulator"], ["disruption", "Disruption Simulator"], ["all-routes", "All Routes"],
+];
+
+function SectionTitle({ id, title, desc }: { id: string; title: string; desc: string }) {
+  return (
+    <div>
+      <h2 id={id} className="text-lg font-semibold">{title}</h2>
+      <p className="text-sm text-muted-foreground">{desc}</p>
+    </div>
+  );
+}
 
 function Results() {
   const input = Route.useSearch();
@@ -82,21 +95,32 @@ function Results() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <div className="bg-hero text-navy-foreground">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4 px-4 py-10 sm:px-6">
-          <div>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4 px-4 py-7 sm:px-6">
+          <div className="min-w-0">
             <Link to="/optimizer" search={input} className="no-print inline-flex items-center gap-1 text-sm text-navy-muted hover:text-navy-foreground"><ArrowLeft className="h-4 w-4" /> Edit shipment</Link>
-            <h1 className="mt-2 text-3xl font-semibold">{stationName(input.origin)} → {stationName(input.destination)}</h1>
+            <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">{stationName(input.origin)} → {stationName(input.destination)}</h1>
             <p className="mt-1 text-navy-muted">{CARGO_LABEL[input.cargo]} · {formatNum(input.tonnes)} t · {WAGON_LABEL[input.wagonPref]} · {result.candidates.length} candidate routes evaluated</p>
           </div>
-          <div className="no-print flex gap-2">
+          <div className="no-print flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg border border-navy-border px-4 py-2 text-sm hover:bg-navy-2"><Printer className="h-4 w-4" /> Print report</button>
             <button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground"><Download className="h-4 w-4" /> Export CSV</button>
           </div>
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6">
-        <DisclaimerBar />
+      <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6"><DisclaimerBar /></div>
+      <nav aria-label="Page sections" className="no-print sticky top-16 z-30 mt-4 border-y bg-background/90 backdrop-blur">
+        <ul className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-2 sm:px-6">
+          {SECTIONS.map(([id, label]) => (
+            <li key={id} className="shrink-0">
+              <a href={`#${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); history.replaceState(null, "", `${location.pathname}${location.search}#${id}`); }}
+                className="inline-flex rounded-full px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{label}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <main className="mx-auto max-w-7xl space-y-10 px-4 py-6 sm:px-6">
         {route.wagon.note && <p className="rounded-lg bg-accent px-3 py-2 text-sm text-accent-foreground">{route.wagon.note}</p>}
         {fz.hasConstraints && (
           <div role="status" className={`rounded-lg border px-3 py-2 text-sm ${fz.bothOk.length ? "" : "border-destructive text-destructive"}`}>
@@ -106,7 +130,9 @@ function Results() {
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <section id="recommendations" aria-labelledby="rec-title" className="scroll-mt-32 space-y-4">
+        <SectionTitle id="rec-title" title="Recommended routes" desc="Three ranked options. Select one to view its full journey." />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {STRATS.map((s) => {
             const r = result.best[s];
             const m = META[s];
@@ -143,9 +169,12 @@ function Results() {
             );
           })}
         </div>
+        </section>
 
-        <section id="details" className="grid scroll-mt-20 gap-6 lg:grid-cols-[1.1fr_1fr]">
-          <div className="rounded-xl border bg-card p-6 shadow-card">
+        <section id="details" aria-labelledby="details-title" className="scroll-mt-32 space-y-4">
+        <SectionTitle id="details-title" title="Route details" desc="Segment-by-segment journey and network view for the selected route." />
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+          <div className="rounded-xl border bg-card p-5 shadow-card sm:p-6">
             <div className="no-print mb-4 flex flex-wrap gap-2" role="tablist">
               {STRATS.map((s) => (
                 <button key={s} role="tab" aria-selected={selected === s} onClick={() => setSelected(s)}
@@ -154,7 +183,7 @@ function Results() {
                 </button>
               ))}
             </div>
-            <h2 className="text-xl font-semibold">{META[selected].label} route details</h2>
+            <h3 className="text-lg font-semibold">{META[selected].label} route details</h3>
             <p className="mt-1 text-sm text-muted-foreground">{route.stops.map(stationName).join(" → ")}</p>
             <ol className="mt-5 space-y-0">
               {route.segments.map((seg, i) => {
@@ -202,34 +231,41 @@ function Results() {
               <div><div className="text-xs text-muted-foreground">Wagons</div><div className="font-mono">{route.wagon.wagonCount} {WAGON_LABEL[route.wagon.wagon].split(" ")[0]}</div></div>
             </div>
           </div>
-          <div className="rounded-xl border bg-navy p-4 shadow-card">
+          <div className="rounded-xl border bg-navy p-4 shadow-card lg:sticky lg:top-32 lg:self-start">
             <div className="mb-2 flex flex-wrap gap-3 text-xs text-navy-muted">
               {STRATS.map((s) => <span key={s} className="inline-flex items-center gap-1"><span className={`h-2 w-4 rounded ${META[s].bg}`} />{META[s].label}</span>)}
               <span className="ml-auto">Schematic, not to scale</span>
             </div>
             <RouteMap dark className="h-[420px] w-full" routes={STRATS.map((s) => ({ stops: result.best[s].stops, tone: s, active: s === selected }))} />
           </div>
+        </div>
         </section>
 
+        <div id="sustainability" className="scroll-mt-32">
         <EmissionsComparison cmp={emissions} result={result} tonnes={input.tonnes} meta={META} />
+        </div>
 
+        <div id="what-if" className="no-print scroll-mt-32">
         <WhatIfSimulator key={JSON.stringify(input)} result={result} input={input}
           labels={{ cost: META.cost.label, fast: META.fast.label, balanced: META.balanced.label }} />
+        </div>
 
+        <div id="disruption" className="no-print scroll-mt-32">
         <DisruptionSimulator key={`d-${JSON.stringify(input)}`} result={result} input={input} strategy={selected} strategyLabel={META[selected].label} />
+        </div>
 
-        <section className="rounded-xl border bg-card shadow-card">
-          <h2 className="px-6 pt-5 text-lg font-semibold">All evaluated routes</h2>
+        <section id="all-routes" aria-labelledby="all-title" className="scroll-mt-32 overflow-hidden rounded-xl border bg-card shadow-card">
+          <h2 id="all-title" className="px-6 pt-5 text-lg font-semibold">All evaluated routes</h2>
           <div className="overflow-x-auto">
             <table className="mt-3 w-full min-w-[720px] text-sm">
-              <thead className="border-y bg-muted text-left text-xs text-muted-foreground">
+              <thead className="sticky top-0 border-y bg-muted text-left text-xs text-muted-foreground">
                 <tr><th className="px-6 py-2">Route</th><th className="px-3 py-2">Cost</th><th className="px-3 py-2">Time</th><th className="px-3 py-2">Distance</th><th className="px-3 py-2">Transfers</th><th className="px-6 py-2">Best for</th></tr>
               </thead>
               <tbody>
                 {result.candidates.map((r) => {
                   const tags = strategiesFor(r);
                   return (
-                    <tr key={r.id} className={`border-b last:border-0 ${r.id === route.id ? "bg-accent/50" : ""}`}>
+                    <tr key={r.id} className={`border-b last:border-0 ${r.id === route.id ? "bg-accent/50" : "even:bg-muted/40"}`}>
                       <td className="px-6 py-3">{r.stops.map(stationName).join(" → ")}</td>
                       <td className="px-3 py-3 font-mono">{formatInr(r.costInr)}</td>
                       <td className="px-3 py-3 font-mono">{r.hours} h</td>
