@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, Route as RouteIcon, IndianRupee, Timer, Boxes, Scale, FileDown, MapPinned, SlidersHorizontal, BarChart3, Leaf, Truck, Building2, Server, Network, Cpu, Database } from "lucide-react";
 import { SiteHeader, SiteFooter, DisclaimerBar } from "@/components/rail/SiteChrome";
 import { RouteMap } from "@/components/rail/RouteMap";
+import { SamplePreviewDialog } from "@/components/rail/SamplePreviewDialog";
 import { optimizeRoutes } from "@/lib/rail/optimizer";
 import { formatInr } from "@/lib/rail/api";
 
@@ -64,7 +65,7 @@ export function HeroSection() {
           <div className="rounded-2xl border border-navy-border bg-navy/70 p-4 shadow-glow backdrop-blur">
             <div className="mb-3 flex items-center justify-between text-sm">
               <span className="font-medium">Delhi → Mumbai · Cement 1,200 t</span>
-              <span className="text-xs text-navy-muted">Sample preview</span>
+              <SamplePreviewDialog result={preview} />
             </div>
             <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
               <RouteMap dark className="h-72 w-full" routes={[
