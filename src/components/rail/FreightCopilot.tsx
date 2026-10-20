@@ -26,7 +26,7 @@ export function FreightCopilot({ onConfirm, busy }: { onConfirm: (s: ShipmentSea
     setStatus("loading"); setError(null);
     try {
       const res = await extract({ data: { text } });
-      if (!res.ok) { setStatus("error"); setError(`${res.error} You can still use the manual form below.`); return; }
+      if (!res.ok) { setStatus("error"); setError(`${res.error} You can still use Manual Entry instead.`); return; }
       const x: Extraction = res.data;
       setDraft({
         origin: x.origin ?? "", destination: x.destination ?? "", cargo: x.cargo ?? "",
@@ -37,7 +37,7 @@ export function FreightCopilot({ onConfirm, busy }: { onConfirm: (s: ShipmentSea
       setStatus("ready");
     } catch (e) {
       setStatus("error");
-      setError(`${e instanceof Error && e.message ? e.message : "AI assistant is unavailable right now."} You can still use the manual form below.`);
+      setError(`${e instanceof Error && e.message ? e.message : "AI assistant is unavailable right now."} You can still use Manual Entry instead.`);
     }
   }
 
@@ -65,7 +65,7 @@ export function FreightCopilot({ onConfirm, busy }: { onConfirm: (s: ShipmentSea
   }
 
   return (
-    <section aria-labelledby="copilot-title" className="mb-6 rounded-2xl border bg-card p-6 shadow-card sm:p-8">
+    <section aria-labelledby="copilot-title" className="p-5 sm:p-6">
       <div className="flex items-center gap-2">
         <Bot className="h-5 w-5 text-primary" />
         <h2 id="copilot-title" className="font-semibold">AI Freight Copilot</h2>
