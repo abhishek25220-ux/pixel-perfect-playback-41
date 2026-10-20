@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { IndianRupee, Timer, Ruler, Repeat, Boxes, Printer, Download, ArrowLeft, CheckCircle2, ChevronRight } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { IndianRupee, Timer, Ruler, Repeat, Boxes, Printer, Download, ArrowLeft, CheckCircle2, ChevronRight, ChevronDown, Map as MapIcon, Leaf, SlidersHorizontal, TriangleAlert, ListOrdered, type LucideIcon } from "lucide-react";
 import { SiteHeader, SiteFooter, DisclaimerBar } from "@/components/rail/SiteChrome";
 import { RouteMap } from "@/components/rail/RouteMap";
 import { WhatIfSimulator } from "@/components/rail/WhatIfSimulator";
@@ -12,7 +12,7 @@ import { parseSearch } from "@/lib/rail/search";
 import { BALANCED_WEIGHTS } from "@/lib/rail/optimizer";
 import { checkRoute, explainStrategy, feasibility } from "@/lib/rail/explain";
 import { EmissionsComparison } from "@/components/rail/EmissionsComparison";
-import { compareEmissions, emissionsCsvCells, emissionsCsvNote } from "@/lib/rail/emissions";
+import { compareEmissions, emissionsCsvCells, emissionsCsvNote, formatKg } from "@/lib/rail/emissions";
 
 export const Route = createFileRoute("/results")({
   validateSearch: parseSearch,
@@ -54,6 +54,12 @@ function Results() {
   const errors = validateInput(input);
   const result = useMemo(() => (Object.keys(errors).length ? null : optimizeRoutes(input)), [JSON.stringify(input)]);
   const [selected, setSelected] = useState<Strategy>(input.priority ?? "balanced");
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const toggle = (id: string) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+  const reveal = (id: string) => {
+    setOpen((o) => ({ ...o, [id]: true }));
+    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
   if (!result) {
     return (
@@ -113,7 +119,7 @@ function Results() {
         <ul className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-2 sm:px-6">
           {SECTIONS.map(([id, label]) => (
             <li key={id} className="shrink-0">
-              <a href={`#${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); history.replaceState(null, "", `${location.pathname}${location.search}#${id}`); }}
+              <a href={`#${id}`} onClick={(e) => { e.preventDefault(); reveal(id); history.replaceState(null, "", `${location.pathname}${location.search}#${id}`); }}
                 className="inline-flex rounded-full px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{label}</a>
             </li>
           ))}
@@ -152,16 +158,13 @@ function Results() {
                   <Stat icon={Repeat} label="Transfers" value={String(r.transfers)} />
                 </dl>
                 <div className="mt-3 flex items-center gap-2 text-sm"><Boxes className="h-4 w-4 text-muted-foreground" />{WAGON_LABEL[r.wagon.wagon]} × {r.wagon.wagonCount}</div>
-                <p className="mt-3 text-sm">{expl[s].why}</p>
                 {fz.hasConstraints && (() => { const c = checkRoute(r, constraints); return (
                   <p className="mt-2 flex flex-wrap gap-2 text-xs">
                     {c.deadline !== undefined && <span className={c.deadline ? "text-cost" : "text-destructive"}>{c.deadline ? "✓ Meets" : "✗ Misses"} {input.deadlineHours} h deadline</span>}
                     {c.budget !== undefined && <span className={c.budget ? "text-cost" : "text-destructive"}>{c.budget ? "✓ Within" : "✗ Over"} budget</span>}
                   </p>
                 ); })()}
-                <p className="mt-3 text-sm text-muted-foreground">Via {r.corridors.join(" → ")}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Stops: {r.stops.slice(1, -1).map(stationName).join(", ") || "Direct"}</p>
-                <button onClick={() => { setSelected(s); document.getElementById("details")?.scrollIntoView({ behavior: "smooth" }); }}
+                <button aria-controls="details-panel" onClick={() => { setSelected(s); reveal("details"); }}
                   className="no-print mt-auto inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-2 pt-2 text-sm font-medium transition hover:bg-secondary [margin-top:1.25rem]">
                   View Route Details <ChevronRight className="h-4 w-4" />
                 </button>
@@ -171,8 +174,9 @@ function Results() {
         </div>
         </section>
 
-        <section id="details" aria-labelledby="details-title" className="scroll-mt-32 space-y-4">
-        <SectionTitle id="details-title" title="Route details" desc="Segment-by-segment journey and network view for the selected route." />
+        <Disclosure id="details" icon={MapIcon} title="Explore Route & Journey Details" open={!!open.details} onToggle={() => toggle("details")}
+          action="View full route details"
+          summary={<>{META[selected].label}: {route.stops.map(stationName).join(" → ")}</>}>
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
           <div className="rounded-xl border bg-card p-5 shadow-card sm:p-6">
             <div className="no-print mb-4 flex flex-wrap gap-2" role="tablist">
@@ -239,23 +243,28 @@ function Results() {
             <RouteMap dark className="h-[420px] w-full" routes={STRATS.map((s) => ({ stops: result.best[s].stops, tone: s, active: s === selected }))} />
           </div>
         </div>
-        </section>
+        </Disclosure>
 
-        <div id="sustainability" className="scroll-mt-32">
+        <Disclosure id="sustainability" icon={Leaf} title="Sustainability & Estimated Emissions" open={!!open.sustainability} onToggle={() => toggle("sustainability")}
+          action="View emissions breakdown"
+          summary={emissions.lowestKg != null ? <>Lowest estimated emissions among recommendations: <strong className="text-foreground">{formatKg(emissions.lowestKg)}</strong></> : "Emissions estimate unavailable for this shipment."}>
         <EmissionsComparison cmp={emissions} result={result} tonnes={input.tonnes} meta={META} />
-        </div>
+        </Disclosure>
 
-        <div id="what-if" className="no-print scroll-mt-32">
+        <Disclosure id="what-if" printable={false} icon={SlidersHorizontal} title="What-if Simulator" open={!!open["what-if"]} onToggle={() => toggle("what-if")}
+          action="Configure scenario" summary="Test budget caps, delivery deadlines and cost-versus-time priorities.">
         <WhatIfSimulator key={JSON.stringify(input)} result={result} input={input}
           labels={{ cost: META.cost.label, fast: META.fast.label, balanced: META.balanced.label }} />
-        </div>
+        </Disclosure>
 
-        <div id="disruption" className="no-print scroll-mt-32">
+        <Disclosure id="disruption" printable={false} icon={TriangleAlert} title="Disruption Simulator" open={!!open.disruption} onToggle={() => toggle("disruption")}
+          action="Open simulator" summary="Test the selected route against a hypothetical blocked or delayed segment.">
         <DisruptionSimulator key={`d-${JSON.stringify(input)}`} result={result} input={input} strategy={selected} strategyLabel={META[selected].label} />
-        </div>
+        </Disclosure>
 
-        <section id="all-routes" aria-labelledby="all-title" className="scroll-mt-32 overflow-hidden rounded-xl border bg-card shadow-card">
-          <h2 id="all-title" className="px-6 pt-5 text-lg font-semibold">All evaluated routes</h2>
+        <Disclosure id="all-routes" icon={ListOrdered} title="All Evaluated Routes" open={!!open["all-routes"]} onToggle={() => toggle("all-routes")}
+          action="View all routes" summary={<>{result.candidates.length} candidate routes evaluated. Compare every option side by side.</>}>
+        <section aria-label="All evaluated routes" className="overflow-hidden rounded-xl border bg-card shadow-card">
           <div className="overflow-x-auto">
             <table className="mt-3 w-full min-w-[720px] text-sm">
               <thead className="sticky top-0 border-y bg-muted text-left text-xs text-muted-foreground">
@@ -288,9 +297,38 @@ function Results() {
             Estimates use a sample rate per tonne-km by cargo type, segment cost factors, transfer handling per tonne, segment speeds, halts and transfer time. Balanced = equal-weight normalized cost and time; ties resolved by fewer transfers, then shorter distance.
           </p>
         </section>
+        </Disclosure>
       </main>
       <SiteFooter />
     </div>
+  );
+}
+
+function Disclosure({ id, icon: Icon, title, summary, action, open, onToggle, printable = true, children }: {
+  id: string; icon: LucideIcon; title: string; summary: ReactNode; action: string; open: boolean; onToggle: () => void; printable?: boolean; children: ReactNode;
+}) {
+  const panel = `${id}-panel`;
+  return (
+    <section id={id} aria-labelledby={`${id}-title`} className={`scroll-mt-32 rounded-xl border bg-card shadow-card ${printable ? "" : "no-print"}`}>
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground"><Icon className="h-4 w-4" /></span>
+          <div className="min-w-0">
+            <h2 id={`${id}-title`} className="font-semibold">{title}</h2>
+            <p className="text-sm text-muted-foreground">{summary}</p>
+          </div>
+        </div>
+        <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={panel}
+          className="no-print inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-4 text-sm font-medium transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {open ? "Hide" : action}
+          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+      {/* Kept mounted while collapsed so simulator inputs and results are never lost. */}
+      <div id={panel} role="region" aria-labelledby={`${id}-title`} className={`border-t bg-background/40 p-3 sm:p-4 ${open ? "" : `hidden ${printable ? "print:block" : ""}`}`}>
+        {children}
+      </div>
+    </section>
   );
 }
 
